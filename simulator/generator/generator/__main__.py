@@ -8,22 +8,28 @@ from pyspark.sql import SparkSession
 import pyspark.sql.functions as F
 from pyspark.sql.types import StringType
 
+
 executors = int(os.environ.get('EXECUTORS') or 1)
 rowsPerSecond = int(os.environ.get('EVENTS_PER_SECOND') or 1000)
 numberOfDevices = int(os.environ.get('NUMBER_OF_DEVICES') or 1000)
 complexDataCount = int(os.environ.get("COMPLEX_DATA_COUNT") or 23)
 duplicateEveryNEvents = int(os.environ.get("DUPLICATE_EVERY_N_EVENTS") or 0)
 
-outputFormat = os.environ.get('OUTPUT_FORMAT') or "kafka"
+outputFormat = os.environ.get('OUTPUT_FORMAT') or "eventhubs"
 outputOptions = json.loads(os.environ.get('OUTPUT_OPTIONS') or "{}")
-secureOutputOptions = json.loads(os.environ.get('SECURE_OUTPUT_OPTIONS') or "{}")
+# secureOutputOptions = json.loads(os.environ.get('SECURE_OUTPUT_OPTIONS') or "{}")
+
+secureOutputOptions="{\"eventhubs.connectionstring\": \"Endpoint=sb://debealfeu.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SM/yLTd9G4YMnUuXacAdEksECOdSpD/rPB7/47Cp0Dw=;EntityPath=salesorders\"}"
 
 generate_uuid = F.udf(lambda : str(uuid.uuid4()), StringType())
+
+packages = [f'com.microsoft.azure:azure-eventhubs-spark_2.11:2.3.13']
 
 spark = (SparkSession
   .builder
   .master("local[%d]" % executors)
   .appName("DataGenerator")
+  .config("spark.jars.packages", ",".join(packages))
   .getOrCreate()
   )
 
@@ -60,13 +66,20 @@ if outputFormat == "eventhubs":
 else: #Kafka format
   bodyColumn = "value"
 
+
+connectionString = "Endpoint=sb://XXX.servicebus.windows.net/;XXX;EntityPath=XXX"
+
+ehConf = {}
+ehConf['eventhubs.connectionString'] = connectionString
+
 query = (stream
   .selectExpr("to_json(struct(eventId, type, deviceId, deviceSequenceNumber, createdAt, value, complexData)) AS %s" % bodyColumn, "partitionKey")
   .writeStream
   .partitionBy("partitionKey")
   .format(outputFormat)
   .options(**outputOptions)
-  .options(**secureOutputOptions)
+  .options(**ehConf)
+  # .options(**secureOutputOptions)
   .option("checkpointLocation", "/tmp/checkpoint")
   .start()
   )
