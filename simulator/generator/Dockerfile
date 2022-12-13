@@ -29,7 +29,8 @@ WORKDIR /project
 FROM mcr.microsoft.com/java/jre:8u192-zulu-alpine AS production
 
 # Install Python
-RUN apk add --no-cache python3=3.6.8-r0 bash
+# RUN apk add --no-cache python3=3.6.8-r0 bash
+RUN apk add python3-dev=3.6.9-r3 --repository=http://dl-cdn.alpinelinux.org/alpine/v3.9/main
 
 COPY --from=build /venv /venv
 
@@ -39,3 +40,4 @@ ENV PYSPARK_PYTHON /venv/bin/python3
 
 # remember to run python from the virtualenv
 CMD ["/venv/bin/python3", "-m", "generator"]
+
